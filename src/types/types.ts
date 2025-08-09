@@ -21,4 +21,5 @@ export interface IPill {
   height: number;
   color: string;
   originalRadius: number;
+  cornerType?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 }

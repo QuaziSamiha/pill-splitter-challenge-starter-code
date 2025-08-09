@@ -1,18 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import type { IMousePosition, IPill } from "../types/types";
-
-const COLORS = [
-  "#FF6B6B",
-  "#4ECDC4",
-  "#45B7D1",
-  "#96CEB4",
-  "#FFEAA7",
-  "#DDA0DD",
-  "#98D8C8",
-  "#F7DC6F",
-  "#BB8FCE",
-  "#85C1E9",
-];
+import SplitLines from "./SplitLines";
+import { getRandomColor } from "../utils/getRandomColor";
 
 const MIN_PILL_SIZE = 40;
 const MIN_PART_SIZE = 20;
@@ -20,9 +9,12 @@ const BORDER_RADIUS = 20;
 
 export default function PillSplitter() {
   const [pills, setPills] = useState<IPill[]>([]);
-  const [mousePos, setMousePos] = useState<IMousePosition>({ x: 0, y: 0 });
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [mousePosition, setMousePosition] = useState<IMousePosition>({
+    x: 0,
+    y: 0,
+  });
+  const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [draggedPill, setDraggedPill] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [drawStart, setDrawStart] = useState<IMousePosition>({ x: 0, y: 0 });
@@ -31,11 +23,8 @@ export default function PillSplitter() {
     x: 0,
     y: 0,
   });
-  const [mouseDownTime, setMouseDownTime] = useState(0);
+  const [mouseDownTime, setMouseDownTime] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const getRandomColor = (): string =>
-    COLORS[Math.floor(Math.random() * COLORS.length)];
 
   const generateId = (): string => Math.random().toString(36).substr(2, 9);
 
@@ -69,7 +58,7 @@ export default function PillSplitter() {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      setMousePos({ x, y });
+      setMousePosition({ x, y });
 
       // Handle drawing
       if (isDrawing && !isDragging) {
@@ -161,6 +150,7 @@ export default function PillSplitter() {
       const newPill: IPill = {
         ...currentDraw,
         id: generateId(),
+        cornerType: undefined, // ensure full border radius for newly drawn pill
       };
       setPills((prev) => [...prev, newPill]);
     }
@@ -208,6 +198,9 @@ export default function PillSplitter() {
           clickY >= pill.y && clickY <= pill.y + pill.height;
         const intersectsBoth = intersectsVertical && intersectsHorizontal;
 
+        // Only assign cornerType if splitting a parent/original pill (cornerType is undefined)
+        const assignCorners = pill.cornerType === undefined;
+
         if (intersectsBoth) {
           // Split the pill into 4 parts (clicked pill)
           const leftWidth = clickX - pill.x;
@@ -227,6 +220,7 @@ export default function PillSplitter() {
               height: topHeight,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'top-left' : undefined,
             });
           }
 
@@ -240,6 +234,7 @@ export default function PillSplitter() {
               height: topHeight,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'top-right' : undefined,
             });
           }
 
@@ -253,6 +248,7 @@ export default function PillSplitter() {
               height: bottomHeight,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'bottom-left' : undefined,
             });
           }
 
@@ -266,6 +262,7 @@ export default function PillSplitter() {
               height: bottomHeight,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'bottom-right' : undefined,
             });
           }
 
@@ -300,6 +297,7 @@ export default function PillSplitter() {
               height: pill.height,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'top-left' : undefined,
             });
 
             // Right part
@@ -311,6 +309,7 @@ export default function PillSplitter() {
               height: pill.height,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'top-right' : undefined,
             });
           } else {
             // Move the pill if it can't be split
@@ -337,6 +336,7 @@ export default function PillSplitter() {
               height: topHeight,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'top-left' : undefined,
             });
 
             // Bottom part
@@ -348,6 +348,7 @@ export default function PillSplitter() {
               height: bottomHeight,
               color: pill.color,
               originalRadius: pill.originalRadius,
+              cornerType: assignCorners ? 'bottom-left' : undefined,
             });
           } else {
             // Move the pill if it can't be split
@@ -370,7 +371,7 @@ export default function PillSplitter() {
   };
 
   return (
-    <div className="w-full h-screen bg-blue-200 relative overflow-hidden">
+    <div className="w-full h-screen bg-[#bedaff] relative overflow-hidden">
       <div
         ref={containerRef}
         className="w-full h-full relative cursor-crosshair"
@@ -381,45 +382,42 @@ export default function PillSplitter() {
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
       >
-        {/* Crosshair lines */}
-        <div
-          className="absolute bg-gray-600 pointer-events-none z-10"
-          style={{
-            left: mousePos.x,
-            top: 0,
-            width: "1px",
-            height: "100%",
-          }}
-        />
-        <div
-          className="absolute bg-gray-600 pointer-events-none z-10"
-          style={{
-            left: 0,
-            top: mousePos.y,
-            width: "100%",
-            height: "1px",
-          }}
-        />
+        <SplitLines mousePosition={mousePosition} />
 
-        {/* Existing pills */}
-        {pills.map((pill) => (
-          <div
-            key={pill.id}
-            className={`absolute border-2 border-gray-800 ${
-              draggedPill === pill.id && isDragging
-                ? "cursor-grabbing"
-                : "cursor-grab"
-            }`}
-            style={{
-              left: pill.x,
-              top: pill.y,
-              width: pill.width,
-              height: pill.height,
-              backgroundColor: pill.color,
-              borderRadius: calculateBorderRadius(pill),
-            }}
-          />
-        ))}
+        {/* ===== RENDERNG EXISTING PILLS ========== */}
+        {pills.map((pill) => {
+          // If the pill is a newly drawn (not split) pill, give it full border radius
+          let borderRadius = '0px';
+          if (pill.cornerType === undefined) {
+            borderRadius = calculateBorderRadius(pill);
+          } else if (pill.cornerType === 'top-left') {
+            borderRadius = `${pill.originalRadius}px 0 0 0`;
+          } else if (pill.cornerType === 'top-right') {
+            borderRadius = `0 ${pill.originalRadius}px 0 0`;
+          } else if (pill.cornerType === 'bottom-left') {
+            borderRadius = `0 0 0 ${pill.originalRadius}px`;
+          } else if (pill.cornerType === 'bottom-right') {
+            borderRadius = `0 0 ${pill.originalRadius}px 0`;
+          }
+          return (
+            <div
+              key={pill.id}
+              className={`absolute border border-[#899f93] ${
+                draggedPill === pill.id && isDragging
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
+              }`}
+              style={{
+                left: pill.x,
+                top: pill.y,
+                width: pill.width,
+                height: pill.height,
+                backgroundColor: pill.color,
+                borderRadius,
+              }}
+            />
+          );
+        })}
 
         {/* Current drawing pill */}
         {isDrawing &&
@@ -427,7 +425,7 @@ export default function PillSplitter() {
           currentDraw.width >= MIN_PILL_SIZE &&
           currentDraw.height >= MIN_PILL_SIZE && (
             <div
-              className="absolute border-2 border-gray-800 opacity-70"
+              className="absolute border border-[#899f93] opacity-70"
               style={{
                 left: currentDraw.x,
                 top: currentDraw.y,
